@@ -1,0 +1,80 @@
+frappe.listview_settings["Item"] = {
+    onload: function(listview) {
+        // Set default page length and initialize start parameter
+        var pageLength = listview.page_length = 500;
+        var start = 0;
+
+        // Custom HTML for pagination controls
+        var customHTML = `
+            <div class="list-paging-area level">
+                <div class="level-left">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-default btn-sm btn-paging" data-value="50">50</button>
+                        <button type="button" class="btn btn-default btn-sm btn-paging" data-value="100">100</button>
+                        <button type="button" class="btn btn-default btn-sm btn-paging" data-value="200">200</button>
+                        <button type="button" class="btn btn-default btn-sm btn-paging" data-value="500">500</button>
+                    </div>
+                </div>
+                <div class="level-right">
+                    <div class="btn-group">
+                        <button class="btn btn-default btn-prev-page btn-sm">Prev Page</button>
+                        <button class="btn btn-default btn-next-page btn-sm">Next Page</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Replace the existing pagination controls with custom HTML
+        $('.list-paging-area').replaceWith(customHTML);
+
+        // Function to set the page length and refresh the list view
+        function setPageLength(value) {
+            pageLength = value;
+            start = 0; // Reset start when page length changes
+            listview.page_length = pageLength;
+            listview.start = start;
+            listview.refresh();
+        }
+
+        // Event listeners for pagination buttons
+        $(document).on('click', '.btn-paging', function() {
+            var value = $(this).data('value');
+            setPageLength(value);
+
+            // Highlight the selected button
+            $('.btn-paging').removeClass('btn-info');
+            $(this).addClass('btn-info');
+        });
+
+        // Event listener for Next Page button
+        $(document).on('click', '.btn-next-page', function () {
+            start += pageLength;
+            listview.start = start;
+            listview.page_length = pageLength;
+            listview.refresh();
+        });
+
+        // Event listener for Prev Page button
+        $(document).on('click', '.btn-prev-page', function() {
+            start = Math.max(0, start - pageLength);
+            listview.start = start;
+            listview.page_length = pageLength;
+            listview.refresh();
+        });
+
+        // Highlight the button corresponding to the initial page length
+        $('.btn-paging[data-value="' + listview.page_length + '"]').addClass('btn-info');
+
+        // Override the refresh method to include start and page length parameters
+        var originalRefresh = listview.refresh;
+        listview.refresh = function() {
+            listview.data.start = start;
+            listview.data.page_length = pageLength;
+
+            // Clear existing results before rendering new results
+            listview.data = [];
+            listview.$result.empty();
+            originalRefresh.call(listview);
+        };
+    }
+}; 
