@@ -1,0 +1,1 @@
+bench --site site_name set-config pause_scheduler 0
