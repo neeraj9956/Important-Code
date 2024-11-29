@@ -1,0 +1,172 @@
+frappe.listview_settings["Contact"] = {
+
+primary_action: function() {
+        this.new_contact_dialog();
+    },
+
+    new_contact_dialog() {
+        let fields = [
+            {
+                fieldname: "email",
+                fieldtype: "Data",
+                label: "Email Address",
+                options: "Email",
+                reqd: 1
+            },
+            {
+                fieldname: "first_name",
+                fieldtype: "Data",
+                label: "First Name",
+                reqd: 1
+            },
+            {
+                fieldname: "last_name",
+                fieldtype: "Data",
+                label: "Last Name",
+            },
+            {
+                fieldname: "custom_contact_owner",
+                fieldtype: "Link",
+                label: "Contact Owner",
+                options: "User",
+            },
+            {
+                fieldname: "phone",
+                fieldtype: "Data",
+                label: "Phone Number",
+                options: "Phone",
+            },
+            {
+                fieldname: "status",
+                fieldtype: "Select",
+                label: "Status",
+                options: "Passive\nOpen\nReplied",
+                default: "Passive"
+            },
+            {
+                fieldname: "designation",
+                fieldtype: "Data",
+                label: "Job Title",
+            }
+        ];
+
+        let newDialog = new frappe.ui.Dialog({
+            title: __("Create New Contact"),
+            fields: fields,
+            primary_action_label: __("Create & Continue"),
+            primary_action: function() {
+                let values = this.get_values();
+                if (!values) return;
+                let contactData = {
+                    "first_name": values.first_name,
+                    "last_name": values.last_name,
+                    "custom_contact_owner": values.custom_contact_owner,
+                    "status": values.status,
+                    "designation": values.designation,
+                };
+
+                
+                frappe.model.with_doctype("Contact", () => {
+                    let contact = frappe.model.get_new_doc("Contact");
+                    Object.assign(contact, contactData);
+
+                    if (values.email) {
+                        let emailChildTable = frappe.model.add_child(contact, "Contact Email", "email_ids");
+                        frappe.model.set_value(emailChildTable.doctype, emailChildTable.name, "email_id", values.email);
+                        frappe.model.set_value(emailChildTable.doctype, emailChildTable.name, "is_primary", 1);
+                    }
+                    if (values.phone) {
+                        let phoneChildTable = frappe.model.add_child(contact, "Contact Phone", "phone_nos");
+                        frappe.model.set_value(phoneChildTable.doctype, phoneChildTable.name, "phone", values.phone);
+                        frappe.model.set_value(phoneChildTable.doctype, phoneChildTable.name, "is_primary_phone", 1);
+                    }
+                    frappe.db.insert(contact)
+                        .then(response => {
+                            if (!response.exc) {
+                                newDialog.hide();
+                            } else {
+                                frappe.msgprint("Error creating Contact: " + response.exc);
+                            }
+                        })
+                        .catch(error => {
+                            frappe.msgprint("Error creating Contact: " + error);
+                        });
+                });
+               
+            },
+            secondary_action_label: __("Cancel"),
+            secondary_action() {
+                newDialog.hide();
+            }
+        });
+        newDialog.add_custom_action(__("Edit Full Form"), () => {
+            frappe.set_route("Form", "Contact", "new");
+            newDialog.hide();
+        });
+
+        newDialog.$wrapper.css({
+            'position': 'fixed',
+            'top':'-2%',
+            'left': '61%',
+            'right':'0',
+            'transition': 'right 0.3s ease-out',
+            'width': '39vw',
+            'height': '100vh',
+            'overflow-y': 'auto', 
+        });
+        
+
+        
+        let style = document.createElement('style');
+        style.textContent = `
+            .highlight-label {
+                background-color: #87CEEB;
+                color: white;
+                transition: background-color 0.5s ease;
+            }
+        `;
+        newDialog.body.appendChild(style);
+
+        
+        let searchBarHtml = `
+        <div class="form-group" style="text-align: center; margin-top: 20px;">
+        <input type="text" id="fieldSearch" style="width: 100%; max-width: 300px; height: 30px; border: 0.5px solid grey; border-radius: 10px; margin-right: 10px; padding-left: 7vw;" placeholder="Search field">
+        <button type="button" id="searchButton" style="height: 30px; width: 80px;" class="btn btn-primary">Search</button>
+    </div>
+    `;
+        newDialog.$wrapper.find('.modal-body').prepend(searchBarHtml);
+
+        newDialog.$wrapper.find('.modal-body').on('click', '#searchButton', function () {
+            var searchValue = newDialog.$wrapper.find('.modal-body #fieldSearch').val().trim();
+            if (searchValue !== '') {
+                navigateToField(searchValue);
+            }
+        });
+
+        function navigateToField(label) {
+            var fieldElement = newDialog.$wrapper.find('.modal-body').find('.control-label').filter(function () {
+                var regex = new RegExp(label, 'i');
+                return regex.test($(this).text().trim());
+            }).closest('.form-group,.section-head.collapsible');
+
+            if (fieldElement.length > 0) {
+                var topOffset = fieldElement.offset().top;
+                $('html, body').animate({
+                    scrollTop: topOffset - 300
+                }, 500);
+
+                fieldElement.addClass('highlight-label');
+                setTimeout(function () {
+                    fieldElement.removeClass('highlight-label');
+                }, 20000);
+            } else {
+                frappe.msgprint(__('Field not found'), __('Search Result'));
+            }
+        }
+
+        newDialog.show();
+        newDialog.$wrapper.find('.modal-header').css('background-color', '#87CEEB');
+        newDialog.$wrapper.find('.standard-actions').css('margin-right', '5%');
+        $('.modal-backdrop.show').css('opacity', '0');
+    }
+};
